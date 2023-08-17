@@ -22,27 +22,34 @@ barrier_init(void)
   bstate.nthread = 0;
 }
 
-static void 
+static void
 barrier()
 {
-  // YOUR CODE HERE
-  //
-  // Block until all threads have called barrier() and
-  // then increment bstate.round.
-  //
-  
+  //new code
+
+  pthread_mutex_lock(&bstate.barrier_mutex);
+  //需要所有线程都调用barrier
+  if (++bstate.nthread != nthread) {
+    pthread_cond_wait(&bstate.barrier_cond, &bstate.barrier_mutex);  //等待
+  }
+  else {  // 所有线程到达barrier
+    bstate.nthread = 0; // 重置nthread
+    ++bstate.round; // round轮数增加
+    pthread_cond_broadcast(&bstate.barrier_cond);   // 唤醒所有的睡眠线程
+  }
+  pthread_mutex_unlock(&bstate.barrier_mutex);
 }
 
-static void *
-thread(void *xa)
+static void*
+thread(void* xa)
 {
-  long n = (long) xa;
+  long n = (long)xa;
   long delay;
   int i;
 
   for (i = 0; i < 20000; i++) {
     int t = bstate.round;
-    assert (i == t);
+    assert(i == t);
     barrier();
     usleep(random() % 100);
   }
@@ -51,10 +58,10 @@ thread(void *xa)
 }
 
 int
-main(int argc, char *argv[])
+main(int argc, char* argv[])
 {
-  pthread_t *tha;
-  void *value;
+  pthread_t* tha;
+  void* value;
   long i;
   double t1, t0;
 
@@ -68,10 +75,10 @@ main(int argc, char *argv[])
 
   barrier_init();
 
-  for(i = 0; i < nthread; i++) {
-    assert(pthread_create(&tha[i], NULL, thread, (void *) i) == 0);
+  for (i = 0; i < nthread; i++) {
+    assert(pthread_create(&tha[i], NULL, thread, (void*)i) == 0);
   }
-  for(i = 0; i < nthread; i++) {
+  for (i = 0; i < nthread; i++) {
     assert(pthread_join(tha[i], &value) == 0);
   }
   printf("OK; passed\n");
